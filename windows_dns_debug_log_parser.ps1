@@ -5,7 +5,7 @@ function Get-ParsedDNSDebugLog
     This cmdlet parses a Windows DNS Debug log with details.
 
     Author: @ksec_io
-    License: BSD 3-Clause
+    License: GPL-3.0 License
     Required Dependencies: None
     Optional Dependencies: None
 
@@ -15,7 +15,7 @@ function Get-ParsedDNSDebugLog
     .EXAMPLE 1
     PS C:\> Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
     PS C:\> . .\windows_dns_debug_log_parser.ps1
-    PS C:\> Get-ParsedDNSDebugLog -DNSLogFile -debugmode "yes" ".\dns.log"
+    PS C:\> Get-ParsedDNSDebugLog -DNSLogFile ".\dns.log" -debugmode "no"
 
         DNS_DateTime      : 7/17/2020 3:21:52 PM
         DNS_Remote_IP     : ::1
@@ -27,10 +27,11 @@ function Get-ParsedDNSDebugLog
     .EXAMPLE 2
     PS C:\> Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
     PS C:\> . .\windows_dns_debug_log_parser
-    PS C:\> Get-ParsedDNSDebugLog -DNSLog ".\dns5.log" | Where-Object DNS_Question_Name -like *msedge.api.cdp.microsoft.com* | Format-Table -Property * -Autosize | Out-String -Width 192
+    PS C:\> Get-ParsedDNSDebugLog -DNSLog ".\dns5.log" -debugmode "no" | Where-Object DNS_Question_Name -like *msedge.api.cdp.microsoft.com* | Format-Table -Property * -Autosize | Out-String -Width 192
 
-        DNS_DateTime         DNS_Remote_IP DNS_ResponseCode DNS_Question_Type DNS_Question_Name                                                            DNS_DATA                          
-        ------------         ------------- ---------------- ----------------- -----------------                                                            --------  
+        DNS_DateTime         DNS_Remote_IP DNS_ResponseCode DNS_Question_Type DNS_Question_Name            DNS_DATA                                                                           
+          
+        ------------         ------------- ---------------- ----------------- -----------------            --------   
         7/17/2020 3:06:15 PM ::1           NOERROR          A                 msedge.api.cdp.microsoft.com api.cdp.microsoft.com....                                                          
           
         7/17/2020 3:06:15 PM 127.0.0.1     NOERROR          A                 msedge.api.cdp.microsoft.com api.cdp.microsoft.com....         
@@ -38,7 +39,7 @@ function Get-ParsedDNSDebugLog
     .EXAMPLE 3
     PS C:\> Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
     PS C:\> . .\windows_dns_debug_log_parser.ps1
-    PS C:\> Get-ParsedDNSDebugLog -DNSLog ".\dns5.log" | Where-Object DNS_Question_Name -like *msedge.api.cdp.microsoft.com* | export-csv -Path C:\dns.csv
+    PS C:\> Get-ParsedDNSDebugLog -DNSLog ".\dns5.log" -debugmode "no" | Where-Object DNS_Question_Name -like *msedge.api.cdp.microsoft.com* | export-csv -Path C:\dns.csv
     #>
 
     [CmdletBinding()]
