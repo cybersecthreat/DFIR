@@ -13,7 +13,7 @@ function Get-ParsedDNSDebugLog
     When a DNS log is converted with this cmdlet it will be turned into objects for further parsing.
 
     .EXAMPLE 1
-    PS C:\> Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+    PS C:\> Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -force
     PS C:\> . .\windows_dns_debug_log_parser.ps1
     PS C:\> Get-ParsedDNSDebugLog -DNSLogFile ".\dns.log" -debugmode "no"
 
@@ -25,9 +25,9 @@ function Get-ParsedDNSDebugLog
         DNS_DATA          : 172.217.24.67
 
     .EXAMPLE 2
-    PS C:\> Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+    PS C:\> Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -force
     PS C:\> . .\windows_dns_debug_log_parser
-    PS C:\> Get-ParsedDNSDebugLog -DNSLog ".\dns5.log" -debugmode "no" | Where-Object DNS_Question_Name -like *msedge.api.cdp.microsoft.com* | Format-Table -Property * -Autosize | Out-String -Width 192
+    PS C:\> Get-ParsedDNSDebugLog -DNSLogFile ".\dns5.log" -debugmode "no" | Where-Object DNS_Question_Name -like *msedge.api.cdp.microsoft.com* | Format-Table -Property * -Autosize | Out-String -Width 192
 
         DNS_DateTime         DNS_Remote_IP DNS_ResponseCode DNS_Question_Type DNS_Question_Name            DNS_DATA                                                                           
           
@@ -37,9 +37,9 @@ function Get-ParsedDNSDebugLog
         7/17/2020 3:06:15 PM 127.0.0.1     NOERROR          A                 msedge.api.cdp.microsoft.com api.cdp.microsoft.com....         
 
     .EXAMPLE 3
-    PS C:\> Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+    PS C:\> Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -force
     PS C:\> . .\windows_dns_debug_log_parser.ps1
-    PS C:\> Get-ParsedDNSDebugLog -DNSLog ".\dns5.log" -debugmode "no" | Where-Object DNS_Question_Name -like *msedge.api.cdp.microsoft.com* | export-csv -Path C:\dns.csv
+    PS C:\> Get-ParsedDNSDebugLog -DNSLogFile ".\dns5.log" -debugmode "no" | Where-Object DNS_Question_Name -like *msedge.api.cdp.microsoft.com* | export-csv -Path C:\dns.csv
     #>
 
     [CmdletBinding()]
@@ -47,7 +47,7 @@ function Get-ParsedDNSDebugLog
       [Parameter(Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
       [Alias('Fullname')]
       [ValidateScript({Test-Path($_)})]
-      [string] $DNSLog = 'StringMode',
+      [string] $DNSLogFile = 'StringMode',
       [string] $debugmode = 'StringMode')
 
 
@@ -59,7 +59,7 @@ function Get-ParsedDNSDebugLog
             #empty array
             $AllObjectsArray = @()
             
-            $ALL_DNS_DATA = (Get-Content $DNSLog -raw) -split '\r\n\r\n'
+            $ALL_DNS_DATA = (Get-Content $DNSLogFile -raw) -split '\r\n\r\n'
             $ALL_DNS_DATA | foreach {
                $data = $_ | Select-String -Pattern '^\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{1,2}:\d{1,2} (AM|PM)'
    
