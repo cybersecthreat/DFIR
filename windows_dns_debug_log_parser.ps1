@@ -39,7 +39,7 @@ function Get-ParsedDNSDebugLog
     .EXAMPLE 3
     PS C:\> Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -force
     PS C:\> . .\windows_dns_debug_log_parser.ps1
-    PS C:\> Get-ParsedDNSDebugLog -DNSLogFile ".\dns5.log" -debugmode "no" | Where-Object DNS_Question_Name -like *msedge.api.cdp.microsoft.com* | export-csv -Path C:\dns.csv
+    PS C:\> Get-ParsedDNSDebugLog -DNSLogFile ".\dns5.log" -debugmode "no" | Where-Object DNS_Question_Name -like *msedge.api.cdp.microsoft.com* | export-csv -Path dns.csv -NoTypeInformation
     #>
 
     [CmdletBinding()]
@@ -56,6 +56,7 @@ function Get-ParsedDNSDebugLog
     PROCESS {
         try
         {
+
             #empty array
             $AllObjectsArray = @()
             
@@ -80,7 +81,6 @@ function Get-ParsedDNSDebugLog
 
                        if ($DNS_SECTION -eq "GENERAL_SECTION") {
                             if($dns_row -match "^\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{1,2}:\d{1,2} (AM|PM)") {
-                                $DNSLogObject = New-Object PSObject
                                 $dns_summary=$($dns_row -split "\[")
                                 $dns_summary_part1=$dns_summary[0]
                                 $dns_summary=$($dns_summary[1] -split "\]")
@@ -90,54 +90,39 @@ function Get-ParsedDNSDebugLog
                                 $dns_summary=$($dns_summary_part1 -split "\s+")
 
                                 $DNS_DateTime=$dns_summary[0]+" "+$dns_summary[1]+" "+$dns_summary[2]
-                                Add-Member -in $DNSLogObject NoteProperty 'DNS_DateTime' $DNS_DateTime
 
                                 if ($debugmode -eq "yes") {
                                     $DNS_ThreadID=$dns_summary[3]
-                                    Add-Member -in $DNSLogObject NoteProperty 'DNS_ThreadID' $DNS_ThreadID
                                     $DNS_Context=$dns_summary[4]
-                                    Add-Member -in $DNSLogObject NoteProperty 'DNS_Context' $DNS_Context
                                     $DNS_Internal_packet_identifier=$dns_summary[5]
-                                    Add-Member -in $DNSLogObject NoteProperty 'DNS_Internal_packet_identifier' $DNS_Internal_packet_identifier
                                     $DNS_UDP_TCP_indicator=$dns_summary[6]
-                                    Add-Member -in $DNSLogObject NoteProperty 'DNS_UDP_TCP_indicator' $DNS_UDP_TCP_indicator
 
                                     $DNS_Send_Receive_indicator=$dns_summary[7]
-                                    Add-Member -in $DNSLogObject NoteProperty 'DNS_Send_Receive_indicator' $DNS_Send_Receive_indicator
                                 }
                                 $DNS_Remote_IP=$dns_summary[8]
-                                Add-Member -in $DNSLogObject NoteProperty 'DNS_Remote_IP' $DNS_Remote_IP
                                 if ($debugmode -eq "yes") {
                                     $DNS_Xid_hex=$dns_summary[9]
-                                    Add-Member -in $DNSLogObject NoteProperty 'DNS_Xid_hex' $DNS_Xid_hex
                                     $DNS_Query_Response=$dns_summary[10]
-                                    Add-Member -in $DNSLogObject NoteProperty 'DNS_Query_Response' $DNS_Query_Response
                                     $DNS_Opcode=$dns_summary[11]
-                                    Add-Member -in $DNSLogObject NoteProperty 'DNS_Opcode' $DNS_Opcode
                                 }
 
                                 $dns_summary=$($dns_summary_part2 -split " ")
                                 if ($debugmode -eq "yes") {
                                     $DNS_Flags_hex=$dns_summary[0]
-                                    Add-Member -in $DNSLogObject NoteProperty 'DNS_Flags_hex' $DNS_Flags_hex
 
                                     $DNS_Flags_char_codes=""
                                     for ($i=1;$i -lt ($dns_summary.Length-1);$i++){
     	                                $DNS_Flags_char_codes+=$dns_summary[$i]+" "
                                     }
-                                    Add-Member -in $DNSLogObject NoteProperty 'DNS_Flags_char_codes' $DNS_Flags_char_codes
                                 }
 	                            $DNS_ResponseCode=$dns_summary[$dns_summary.Length-1]
-                                Add-Member -in $DNSLogObject NoteProperty 'DNS_ResponseCode' $DNS_ResponseCode
 
                                 $dns_summary=$($dns_summary_part3 -split "\s+")
 
 	                            $DNS_Question_Type=$dns_summary[1]
-                                Add-Member -in $DNSLogObject NoteProperty 'DNS_Question_Type' $DNS_Question_Type                 
 	                            $DNS_Question_Name=$dns_summary[2]
                                 #$DNS_Question_Name=((($DNS_Question_Name) -replace "`\(.*?`\)","." -replace "^.","").trim(".")).TRIM()
                                 $DNS_Question_Name=((($DNS_Question_Name) -replace "`\(\d+`\)","." -replace "^.","").trim(".")).TRIM()
-                                Add-Member -in $DNSLogObject NoteProperty 'DNS_Question_Name' $DNS_Question_Name
 
                                 #write-host "DNS_DateTime="$DNS_DateTime
                                 #write-host "DNS_ThreadID="$DNS_ThreadID
@@ -160,10 +145,14 @@ function Get-ParsedDNSDebugLog
                             if ($dns_row -like "      DATA *") {
                                 $DNS_DATA_TEMP=$($dns_row -split "\s+",3)[2].Trim()
                                 
-                                if (($DNS_DATA_TEMP[0] -eq '[') -and ($DNS_DATA_TEMP[5] -eq ']')) {
-                                    $DNS_DATA_TEMP=$DNS_DATA_TEMP.substring(6)
-                                }
+                                #if (($DNS_DATA_TEMP[0] -eq '[') -and ($DNS_DATA_TEMP[5] -eq ']')) {
+                                #    $DNS_DATA_TEMP=$DNS_DATA_TEMP.substring(6)
+                                #}
+                                $DNS_DATA_TEMP=$DNS_DATA_TEMP -replace "`\[\w+`\]",""
                                 $DNS_DATA_TEMP=((($DNS_DATA_TEMP) -replace "`\(\d+`\)",".").trim(".")).TRIM()
+
+                                $DNS_DATA_TEMP=$DNS_DATA_TEMP -replace "\s+Offset = 0x\w{4}, RR count = \d{1,3}",""
+
                                 if (-Not ([string]::IsNullOrWhiteSpace($DNS_DATA_TEMP))){
                                     if ($DNS_DATA) {
                                             $DNS_DATA+="`n"+$DNS_DATA_TEMP
@@ -184,10 +173,44 @@ function Get-ParsedDNSDebugLog
                 }
     
                 #write-host $DNS_DATA
-                if ($DNSLogObject -and $DNS_DATA) {
-                    Add-Member -in $DNSLogObject NoteProperty 'DNS_DATA' $DNS_DATA
+                #if ($DNSLogObject -and $DNS_DATA) {
+                #    Add-Member -in $DNSLogObject NoteProperty 'DNS_DATA' $DNS_DATA
+                #}
+
+                if ($debugmode -eq "yes") {
+                    $DNSLogObject = New-Object PsObject -Property ([ordered]@{
+                        DNS_DateTime=$DNS_DateTime
+                        DNS_ThreadID=$DNS_ThreadID
+                        DNS_Context=$DNS_Context
+                        DNS_Internal_packet_identifier=$DNS_Internal_packet_identifier
+                        DNS_UDP_TCP_indicator=$DNS_UDP_TCP_indicator
+                        DNS_Send_Receive_indicator=$DNS_Send_Receive_indicator
+                        DNS_Remote_IP=$DNS_Remote_IP
+                        DNS_Xid_hex=$DNS_Xid_hex
+                        DNS_Query_Response=$DNS_Query_Response
+                        DNS_Opcode=$DNS_Opcode
+                        DNS_Flags_hex=$DNS_Flags_hex
+                        DNS_Flags_char_codes=$DNS_Flags_char_codes
+                        DNS_ResponseCode=$DNS_ResponseCode
+                        DNS_Question_Type=$DNS_Question_Type                                                 
+                        DNS_Question_Name=$DNS_Question_Name
+                        DNS_DATA=$DNS_DATA
+                    })   
+                } else {
+                    $DNSLogObject = New-Object PsObject -Property ([ordered]@{
+                        DNS_DateTime=$DNS_DateTime
+                        DNS_Remote_IP=$DNS_Remote_IP
+                        DNS_ResponseCode=$DNS_ResponseCode
+                        DNS_Question_Type=$DNS_Question_Type                                                 
+                        DNS_Question_Name=$DNS_Question_Name
+                        DNS_DATA=$DNS_DATA
+                    })
                 }
-                $AllObjectsArray += $DNSLogObject
+
+                if ($DNSLogObject -and $DNS_DateTime) {
+                    $AllObjectsArray += $DNSLogObject
+                }
+
             }
             return $AllObjectsArray
         }
