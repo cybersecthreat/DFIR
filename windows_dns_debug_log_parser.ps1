@@ -60,157 +60,83 @@ function Get-ParsedDNSDebugLog
             #empty array
             $AllObjectsArray = @()
             
-            $ALL_DNS_DATA = (Get-Content $DNSLogFile -raw) -split '\r\n\r\n'
-            $ALL_DNS_DATA | foreach {
-               $data = $_ | Select-String -Pattern '^\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{1,2}:\d{1,2} (AM|PM)'
-   
-               $DNS_SECTION = "GENERAL_SECTION"
-               $DNS_DATA=""
-               ForEach ($dns_row in $($data -split "`r`n"))
-                {
-                       
-                       if ($dns_row -eq "    QUESTION SECTION:") {
-                            $DNS_SECTION = "QUESTION_SECTION"
-                       } elseif ($dns_row -eq "    ANSWER SECTION:") {
-                            $DNS_SECTION = "ANSWER_SECTION"
-                       } elseif ($dns_row -eq "    AUTHORITY SECTION:") {
-                            $DNS_SECTION = "AUTHORITY_SECTION"
-                       } elseif ($dns_row -eq "    ADDITIONAL SECTION:") {
-                            $DNS_SECTION = "ADDITIONAL_SECTION"
-                       }
+            $ALL_DNS_DATA = (Get-Content $DNSLogFile -raw)
 
-                       if ($DNS_SECTION -eq "GENERAL_SECTION") {
-                            if($dns_row -match "^\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{1,2}:\d{1,2} (AM|PM)") {
-                                $dns_summary=$($dns_row -split "\[")
-                                $dns_summary_part1=$dns_summary[0]
-                                $dns_summary=$($dns_summary[1] -split "\]")
-                                $dns_summary_part2=$dns_summary[0]
-                                $dns_summary_part3=$dns_summary[1]
+            $ALL_DNS_DATA_regex = [regex] '(?<DNS_DateTime>\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{1,2}:\d{1,2} (AM|PM))\s{1}(?<DNS_ThreadID>\w{4})\s{1}(?<DNS_Context>PACKET)\s{2}(?<DNS_Internal_packet_identifier>\w{16})\s{1}(?<DNS_UDP_TCP_indicator>(TCP|UDP))\s{1,2}(?<DNS_Send_Receive_indicator>(Snd|Rcv))\s{1}(?<DNS_Remote_IP>(::1|127.0.0.1|\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}))\s+(?<DNS_Xid_hex>\w{4})\s{1}(?<DNS_Query_Response>(R| ))\s{1}(?<DNS_Opcode>\w{1})\s{1}\[(?<DNS_Flags_hex>\w{4})\s(?<DNS_Flags_char_codes>.*?)(?<DNS_ResponseCode>\w+)]\s{1}(?<DNS_Question_Type>\w+)\s+(?<DNS_Question_Name>.*?)\r\n((?ms).*?\s{4}QUESTION SECTION:\r\n(?<QUESTION_SECTION>.*?)\r\n\s{4}ANSWER SECTION:\r\n(?<ANSWER_SECTION>.*?)\s{4}AUTHORITY SECTION:\r\n(?<AUTHORITY_SECTION>.*?)\s{4}ADDITIONAL SECTION:\r\n(?<ADDITIONAL_SECTION>.*?)\r\n\r\n)?'
 
-                                $dns_summary=$($dns_summary_part1 -split "\s+")
+            $ALL_DNS_DATA_match = $ALL_DNS_DATA_regex.Match($ALL_DNS_DATA)
 
-                                $DNS_DateTime=$dns_summary[0]+" "+$dns_summary[1]+" "+$dns_summary[2]
+            while ($ALL_DNS_DATA_match.Success) {               
 
-                                if ($debugmode -eq "yes") {
-                                    $DNS_ThreadID=$dns_summary[3]
-                                    $DNS_Context=$dns_summary[4]
-                                    $DNS_Internal_packet_identifier=$dns_summary[5]
-                                    $DNS_UDP_TCP_indicator=$dns_summary[6]
+                $DNS_Question_Name=((($ALL_DNS_DATA_match.Groups['DNS_Question_Name'].Value) -replace "`\(\d+`\)","." -replace "^.","").trim(".")).TRIM()
 
-                                    $DNS_Send_Receive_indicator=$dns_summary[7]
-                                }
-                                $DNS_Remote_IP=$dns_summary[8]
-                                if ($debugmode -eq "yes") {
-                                    $DNS_Xid_hex=$dns_summary[9]
-                                    $DNS_Query_Response=$dns_summary[10]
-                                    $DNS_Opcode=$dns_summary[11]
-                                }
-
-                                $dns_summary=$($dns_summary_part2 -split " ")
-                                if ($debugmode -eq "yes") {
-                                    $DNS_Flags_hex=$dns_summary[0]
-
-                                    $DNS_Flags_char_codes=""
-                                    for ($i=1;$i -lt ($dns_summary.Length-1);$i++){
-    	                                $DNS_Flags_char_codes+=$dns_summary[$i]+" "
-                                    }
-                                }
-	                            $DNS_ResponseCode=$dns_summary[$dns_summary.Length-1]
-
-                                $dns_summary=$($dns_summary_part3 -split "\s+")
-
-	                            $DNS_Question_Type=$dns_summary[1]
-	                            $DNS_Question_Name=$dns_summary[2]
-                                #$DNS_Question_Name=((($DNS_Question_Name) -replace "`\(.*?`\)","." -replace "^.","").trim(".")).TRIM()
-                                $DNS_Question_Name=((($DNS_Question_Name) -replace "`\(\d+`\)","." -replace "^.","").trim(".")).TRIM()
-
-                                #write-host "DNS_DateTime="$DNS_DateTime
-                                #write-host "DNS_ThreadID="$DNS_ThreadID
-                                #write-host "DNS_Context="$DNS_Context
-                                #write-host "DNS_Internal_packet_identifier="$DNS_Internal_packet_identifier
-                                #write-host "DNS_UDP_TCP_indicator="$DNS_UDP_TCP_indicator
-                                #write-host "DNS_Send_Receive_indicator="$DNS_Send_Receive_indicator
-                                #write-host "DNS_Remote_IP="$DNS_Remote_IP
-                                #write-host "DNS_Xid_hex="$DNS_Xid_hex
-                                #write-host "DNS_Query_Response="$DNS_Query_Response
-                                #write-host "DNS_Opcode="$DNS_Opcode
-                                #write-host "DNS_Flags_hex="$DNS_Flags_hex
-                                #write-host "DNS_Flags_char_codes="$DNS_Flags_char_codes
-                                #write-host "DNS_ResponseCode="$DNS_ResponseCode
-                                #write-host "DNS_Question_Type="$DNS_Question_Type
-                                #write-host "DNS_Question_Name="$DNS_Question_Name
-
-                            }
-                       } elseif ($DNS_SECTION -eq "ANSWER_SECTION") {
-                            if ($dns_row -like "      DATA *") {
-                                $DNS_DATA_TEMP=$($dns_row -split "\s+",3)[2].Trim()
+               #################################################
+                      
+                if ($ALL_DNS_DATA_match.Groups['ANSWER_SECTION'].Value) {
+                    ForEach ($dns_row in $($ALL_DNS_DATA_match.Groups['ANSWER_SECTION'].Value -split "`r`n")) {
+                        if ($dns_row -like "      DATA *") {
+                            $DNS_DATA_TEMP=$($dns_row -split "\s+",3)[2].Trim()
                                 
-                                #if (($DNS_DATA_TEMP[0] -eq '[') -and ($DNS_DATA_TEMP[5] -eq ']')) {
-                                #    $DNS_DATA_TEMP=$DNS_DATA_TEMP.substring(6)
-                                #}
-                                $DNS_DATA_TEMP=$DNS_DATA_TEMP -replace "`\[\w+`\]",""
-                                $DNS_DATA_TEMP=((($DNS_DATA_TEMP) -replace "`\(\d+`\)",".").trim(".")).TRIM()
+                            $DNS_DATA_TEMP=$DNS_DATA_TEMP -replace "`\[\w+`\]",""
+                            $DNS_DATA_TEMP=((($DNS_DATA_TEMP) -replace "`\(\d+`\)",".").trim(".")).TRIM()
 
-                                $DNS_DATA_TEMP=$DNS_DATA_TEMP -replace "\s+Offset = 0x\w{4}, RR count = \d{1,3}",""
+                            $DNS_DATA_TEMP=$DNS_DATA_TEMP -replace "\s+Offset = 0x\w{4}, RR count = \d{1,3}",""
 
-                                if (-Not ([string]::IsNullOrWhiteSpace($DNS_DATA_TEMP))){
-                                    if ($DNS_DATA) {
-                                            $DNS_DATA+="`n"+$DNS_DATA_TEMP
-                                    } else {
-                                        $DNS_DATA+=$DNS_DATA_TEMP
-                                    }
+                            if (-Not ([string]::IsNullOrWhiteSpace($DNS_DATA_TEMP))){
+                                if ($DNS_DATA) {
+                                        $DNS_DATA+="`n"+$DNS_DATA_TEMP
+                                } else {
+                                    $DNS_DATA+=$DNS_DATA_TEMP
                                 }
-                            } elseif ($dns_row -eq "      empty") {
-                                $DNS_DATA="empty"
                             }
-                       } elseif ($DNS_SECTION -eq "QUESTION_SECTION") {
-                            if ($dns_row -like "    Name      *") {
-                                #write-host $dns_row
-                                #$dns_name=((($dns_row.Split("`"")[1]) -replace "`\(\d+`\)","." -replace "^.","").trim("."))
-                                #write-host $dns_row
-                            }
-                       }
+                        } elseif ($dns_row -eq "      empty") {
+                            $DNS_DATA="empty"
+                        }
+                        $DNS_DATA_TEMP=$null
+                    }
                 }
-    
-                #write-host $DNS_DATA
-                #if ($DNSLogObject -and $DNS_DATA) {
-                #    Add-Member -in $DNSLogObject NoteProperty 'DNS_DATA' $DNS_DATA
-                #}
-
+                #################################################
+                $DNS_Unicode_Question_Name=ConvertTo-UnicodeDNSName -Domain $DNS_Question_Name
                 if ($debugmode -eq "yes") {
                     $DNSLogObject = New-Object PsObject -Property ([ordered]@{
-                        DNS_DateTime=$DNS_DateTime
-                        DNS_ThreadID=$DNS_ThreadID
-                        DNS_Context=$DNS_Context
-                        DNS_Internal_packet_identifier=$DNS_Internal_packet_identifier
-                        DNS_UDP_TCP_indicator=$DNS_UDP_TCP_indicator
-                        DNS_Send_Receive_indicator=$DNS_Send_Receive_indicator
-                        DNS_Remote_IP=$DNS_Remote_IP
-                        DNS_Xid_hex=$DNS_Xid_hex
-                        DNS_Query_Response=$DNS_Query_Response
-                        DNS_Opcode=$DNS_Opcode
-                        DNS_Flags_hex=$DNS_Flags_hex
-                        DNS_Flags_char_codes=$DNS_Flags_char_codes
-                        DNS_ResponseCode=$DNS_ResponseCode
-                        DNS_Question_Type=$DNS_Question_Type                                                 
+                        DNS_DateTime=$ALL_DNS_DATA_match.Groups['DNS_DateTime'].Value
+                        DNS_ThreadID=$ALL_DNS_DATA_match.Groups['DNS_ThreadID'].Value
+                        DNS_Context=$ALL_DNS_DATA_match.Groups['DNS_Context'].Value
+                        DNS_Internal_packet_identifier=$ALL_DNS_DATA_match.Groups['DNS_Internal_packet_identifier'].Value
+                        DNS_UDP_TCP_indicator=$ALL_DNS_DATA_match.Groups['DNS_UDP_TCP_indicator'].Value
+                        DNS_Send_Receive_indicator=$ALL_DNS_DATA_match.Groups['DNS_Send_Receive_indicator'].Value
+                        DNS_Remote_IP=$ALL_DNS_DATA_match.Groups['DNS_Remote_IP'].Value
+                        DNS_Xid_hex=$ALL_DNS_DATA_match.Groups['DNS_Xid_hex'].Value
+                        DNS_Query_Response=$ALL_DNS_DATA_match.Groups['DNS_Query_Response'].Value
+                        DNS_Opcode=$ALL_DNS_DATA_match.Groups['DNS_Opcode'].Value
+                        DNS_Flags_hex=$ALL_DNS_DATA_match.Groups['DNS_Flags_hex'].Value
+                        DNS_Flags_char_codes=$ALL_DNS_DATA_match.Groups['DNS_Flags_char_codes'].Value
+                        DNS_ResponseCode=$ALL_DNS_DATA_match.Groups['DNS_ResponseCode'].Value
+                        DNS_Question_Type=$ALL_DNS_DATA_match.Groups['DNS_Question_Type'].Value                                                 
                         DNS_Question_Name=$DNS_Question_Name
-                        DNS_DATA=$DNS_DATA
-                    })   
+                        DNS_Unicode_Question_Name=$DNS_Unicode_Question_Name
+                        DNS_DATA=$ALL_DNS_DATA_match.Groups['DNS_DATA'].Value
+                    })
                 } else {
                     $DNSLogObject = New-Object PsObject -Property ([ordered]@{
-                        DNS_DateTime=$DNS_DateTime
-                        DNS_Remote_IP=$DNS_Remote_IP
-                        DNS_ResponseCode=$DNS_ResponseCode
-                        DNS_Question_Type=$DNS_Question_Type                                                 
+                        DNS_DateTime=$ALL_DNS_DATA_match.Groups['DNS_DateTime'].Value
+                        DNS_Remote_IP=$ALL_DNS_DATA_match.Groups['DNS_Remote_IP'].Value
+                        DNS_ResponseCode=$ALL_DNS_DATA_match.Groups['DNS_ResponseCode'].Value
+                        DNS_Question_Type=$ALL_DNS_DATA_match.Groups['DNS_Question_Type'].Value                                       
                         DNS_Question_Name=$DNS_Question_Name
+                        DNS_Unicode_Question_Name=$DNS_Unicode_Question_Name
                         DNS_DATA=$DNS_DATA
                     })
                 }
 
-                if ($DNSLogObject -and $DNS_DateTime) {
+                if ($DNSLogObject) {
                     $AllObjectsArray += $DNSLogObject
                 }
-
+                
+                $DNS_DATA=$null
+                $DNSLogObject=$null
+                $DNS_Question_Name=$null
+                $ALL_DNS_DATA_match = $ALL_DNS_DATA_match.NextMatch()
             }
             return $AllObjectsArray
         }
@@ -223,4 +149,18 @@ function Get-ParsedDNSDebugLog
         }
     }
     END { }
+}
+
+function ConvertTo-UnicodeDNSName {
+    [CmdletBinding()]
+    param (
+        # Domain name
+        [Parameter(Mandatory = $true)]
+        [String]
+        $Domain
+    )
+    process {
+        $Idn = New-Object System.Globalization.IdnMapping
+        $Idn.GetUnicode("$Domain")
+    }
 }
